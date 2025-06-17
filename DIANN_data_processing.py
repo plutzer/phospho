@@ -161,13 +161,13 @@ def create_dirs(output_dir, comparisons):
 
 def volcano_plot(dataframe, output_dir, title):
     fig = plt.figure(figsize=(10, 8))
-    sns.scatterplot(data=dataframe, x='log2FC', y=-np.log10(dataframe['adj_p_value']), alpha=0.7)
-    plt.axhline(y=-np.log10(0.05), color='r', linestyle='--', label='adjusted p-value = 0.05')
+    sns.scatterplot(data=dataframe, x='log2FC', y=-np.log10(dataframe['p_value']), alpha=0.7)
+    plt.axhline(y=-np.log10(0.05), color='r', linestyle='--', label='p-value = 0.05')
     plt.axvline(x=1, color='g', linestyle='--', label='log2FC = 1')
     plt.axvline(x=-1, color='g', linestyle='--', label='log2FC = -1')
     plt.title(f'Volcano Plot - {title}')
     plt.xlabel('Log2 Fold Change')
-    plt.ylabel('-Log10 Adjusted P-Value')
+    plt.ylabel('-Log10 P-Value')
     plt.legend()
     plt.tight_layout()
     output_file = os.path.join(output_dir, f"volcano_plot_{title}.png")
