@@ -223,6 +223,95 @@ def differential_analysis(data, comparisons, conditions, output_dir, type, prefi
         # Create a volcano plot
         volcano_plot(dataframe, os.path.join(output_dir, experiment_name), f"{experiment_name}_{type}")
 
+def occupancy_all(conditions, comparisons, output_dir):
+    # Run the relative occupancy analysis for all proteins and phosphosites
+    for index, row in comparisons.iterrows():
+        experiment_name = row['Experiment']
+        if not os.path.exists(os.path.join(output_dir, experiment_name)):
+            print(f"Directory {experiment_name} does not exist. Skipping occupancy analysis.")
+            continue
+        print(f"Running relative occupancy analysis for {experiment_name}...")
+        protein_df = pd.read_csv(os.path.join(output_dir, experiment_name, f"protein_{experiment_name}.csv"))
+        phospho_df = pd.read_csv(os.path.join(output_dir, experiment_name, f"phospho_{experiment_name}.csv"))
+        quant_cols_all = list(conditions['short_name'].unique())
+        condition1 = row['Condition1']
+        condition2 = row['Condition2']
+        relative_occupancy(protein_df,
+                           phospho_df,
+                           quant_cols_all,
+                           output_dir=os.path.join(output_dir, experiment_name),
+                           conditions = (condition1, condition2),
+                           comparison_name=experiment_name,
+                           paired=False
+                           )
+
+def get_pg_id(protein_id, protein_groups):
+    """
+    Get the Protein Group ID for a given protein ID.
+    
+    Parameters:
+        protein_id (str): The protein ID to search for.
+        protein_groups (list): List of protein group IDs.
+
+    Returns:
+        str: The Protein Group ID if found, otherwise returns the original protein ID.
+    """
+    for pg in protein_groups:
+        if protein_id in pg.split(';'):
+            return pg
+    return None
+
+def relative_occupancy(protein_df, phospho_df, quant_cols_all, output_dir, conditions, comparison_name, paired=False):
+    """
+    Calculates relative occupancy of phosphosites normalized to protein abundance and saves the results.
+
+    Output:
+        Writes a CSV file named 'relative_occupancy_{comparison_name}.csv' to the specified output_dir.
+        The file contains all columns from the phospho_df, the normalized quantification columns, 
+        and additional columns: 'log2FC', 'p_value', and 'adj_p_value'.
+    """
+    # Identify the paired conditions
+    condition1, condition2 = conditions
+    con1_cols = [col for col in quant_cols_all if condition1 in col]
+    con2_cols = [col for col in quant_cols_all if condition2 in col]
+    quant_cols = [col for col in quant_cols_all if col in protein_df.columns and col in phospho_df.columns]
+
+    pgs = protein_df['Protein.Group'].unique()
+
+    relative_occupancy_df = phospho_df.copy()
+    for i, row in phospho_df.iterrows():
+        protein_id = row['Protein']
+        pg_id = get_pg_id(protein_id, pgs)
+        phospho_vals = row[quant_cols].values.flatten()
+        protein_vals = protein_df[protein_df['Protein.Group'] == pg_id][quant_cols].values.flatten()
+        if len(protein_vals) == 0:
+            # print(f"Warning: No protein values found for {pg_id}. Skipping row {i}.")
+            normalized_phospho = np.full_like(phospho_vals, np.nan, dtype=np.float64)
+            relative_occupancy_df.loc[i, quant_cols] = normalized_phospho
+        else:
+            normalized_phospho = phospho_vals - protein_vals
+            relative_occupancy_df.loc[i, quant_cols] = normalized_phospho
+        
+    # drop rows from the relative occupancy DataFrame where all quant cols values are NaN
+    relative_occupancy_df = relative_occupancy_df.dropna(subset=quant_cols, how='all')
+
+    # Calculate the log2 fold change for the relative occupancy, and t-test p-values
+    if paired:
+        raise
+    else:
+        relative_occupancy_df['log2FC'] = (relative_occupancy_df[con1_cols].mean(axis=1) - relative_occupancy_df[con2_cols].mean(axis=1)) * np.log2(10)
+        relative_occupancy_df['p_value'] = ttest_ind(relative_occupancy_df[con1_cols], relative_occupancy_df[con2_cols], axis=1, equal_var=False, nan_policy='omit').pvalue
+
+    mask = relative_occupancy_df['p_value'].notna()
+    adj_pvals = np.full_like(relative_occupancy_df['p_value'], np.nan, dtype=np.float64)
+    if mask.any():
+        adj_pvals[mask] = multipletests(relative_occupancy_df.loc[mask, 'p_value'], method='fdr_bh')[1]
+    relative_occupancy_df['adj_p_value'] = adj_pvals
+
+    # Save the relative occupancy DataFrame
+    output_file = os.path.join(output_dir, f"relative_occupancy_{comparison_name}.csv")
+    relative_occupancy_df.to_csv(output_file, index=False)
+    
 def main():
 
     parser = argparse.ArgumentParser(description="Process DIANN data.")
@@ -259,8 +348,12 @@ def main():
 
     # Run statistical tests for each comparison.
     differential_analysis(proteins, comparisons, conditions, args.output_dir, type = "Whole", prefix="protein_")
+    
+    # Here can filter the comparisons to only those that have phospho data
+ 
     differential_analysis(phospho, comparisons, conditions, args.output_dir, type = "Phospho", prefix="phospho_")
-
+    # Run occupancy analysis for all proteins and phosphosites
+    occupancy_all(conditions, comparisons, args.output_dir)
     
 
     print("DONE")
