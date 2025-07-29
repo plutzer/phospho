@@ -311,6 +311,11 @@ def relative_occupancy(protein_df, phospho_df, quant_cols_all, output_dir, condi
     # Save the relative occupancy DataFrame
     output_file = os.path.join(output_dir, f"relative_occupancy_{comparison_name}.csv")
     relative_occupancy_df.to_csv(output_file, index=False)
+
+def absolute_occupancy(protein_df, phospho_df, peptides_df, quant_cols_all, output_dir, conditions, comparison_name, paired=False):
+
+
+    return
     
 def main():
 
@@ -343,15 +348,13 @@ def main():
     phospho = preprocess_phospho(phospho, conditions, args.output_dir)
     phospho.to_csv(os.path.join(args.output_dir, "processed_phospho.csv"), index=False)
 
-    # Normalize the phospho data to protein data
-    # TODO
-
     # Run statistical tests for each comparison.
     differential_analysis(proteins, comparisons, conditions, args.output_dir, type = "Whole", prefix="protein_")
     
     # Here can filter the comparisons to only those that have phospho data
  
     differential_analysis(phospho, comparisons, conditions, args.output_dir, type = "Phospho", prefix="phospho_")
+
     # Run occupancy analysis for all proteins and phosphosites
     occupancy_all(conditions, comparisons, args.output_dir)
     
