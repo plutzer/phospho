@@ -6,7 +6,7 @@ import argparse
 import os
 import time
 from sklearn.decomposition import PCA
-from scipy.stats import ttest_ind
+from scipy.stats import ttest_ind, ttest_rel
 from statsmodels.stats.multitest import multipletests
 
 
@@ -173,7 +173,7 @@ def volcano_plot(dataframe, output_dir, title):
     output_file = os.path.join(output_dir, f"volcano_plot_{title}.png")
     fig.savefig(output_file)
 
-def differential_analysis(data, comparisons, conditions, output_dir, type, prefix="", paired=False):
+def differential_analysis(data, comparisons, conditions, output_dir, type, prefix=""):
     conditions = conditions[conditions['Type'] == type].copy()
 
     quant_cols = list(conditions['short_name'].unique())
@@ -181,6 +181,7 @@ def differential_analysis(data, comparisons, conditions, output_dir, type, prefi
     for index, row in comparisons.iterrows():
         dataframe = data.copy()
         experiment_name = row['Experiment']
+        paired = row['Paired']
         if not os.path.exists(os.path.join(output_dir, experiment_name)):
             print(f"Directory {experiment_name} does not exist. Skipping comparison.")
             continue
@@ -199,12 +200,14 @@ def differential_analysis(data, comparisons, conditions, output_dir, type, prefi
         con2_cols = [col for col in comparison_cols if condition2 in col]
 
         # Convert log10 values to log2 fold change: log2FC = (mean_log10_con1 - mean_log10_con2) * (log2(10))
-        dataframe['log2FC'] = (dataframe[con1_cols].mean(axis=1) - dataframe[con2_cols].mean(axis=1)) * np.log2(10)
+        
 
         # Calculate p-values using t-test
         if paired:
-            raise  # TODO: Implement paired t-test logic
+            dataframe['log2FC'] = np.nanmean(dataframe[con1_cols].values - dataframe[con2_cols].values, axis=1) * np.log2(10)
+            dataframe['p_value'] = ttest_rel(dataframe[con1_cols], dataframe[con2_cols], axis=1, nan_policy='omit').pvalue
         else:
+            dataframe['log2FC'] = (dataframe[con1_cols].mean(axis=1) - dataframe[con2_cols].mean(axis=1)) * np.log2(10)
             dataframe['p_value'] = ttest_ind(dataframe[con1_cols], dataframe[con2_cols], axis=1, equal_var=False, nan_policy='omit').pvalue
 
         # Fill missing p-values with NaN with 1
@@ -236,13 +239,14 @@ def occupancy_all(conditions, comparisons, output_dir):
         quant_cols_all = list(conditions['short_name'].unique())
         condition1 = row['Condition1']
         condition2 = row['Condition2']
+        paired = row['Paired']
         relative_occupancy(protein_df,
                            phospho_df,
                            quant_cols_all,
                            output_dir=os.path.join(output_dir, experiment_name),
                            conditions = (condition1, condition2),
                            comparison_name=experiment_name,
-                           paired=False
+                           paired=paired
                            )
 
 def get_pg_id(protein_id, protein_groups):
@@ -297,7 +301,8 @@ def relative_occupancy(protein_df, phospho_df, quant_cols_all, output_dir, condi
 
     # Calculate the log2 fold change for the relative occupancy, and t-test p-values
     if paired:
-        raise
+        relative_occupancy_df['log2FC'] = (np.nanmean(relative_occupancy_df[con1_cols].values - relative_occupancy_df[con2_cols].values, axis=1)) * np.log2(10)
+        relative_occupancy_df['p_value'] = ttest_rel(relative_occupancy_df[con1_cols], relative_occupancy_df[con2_cols], axis=1, nan_policy='omit').pvalue
     else:
         relative_occupancy_df['log2FC'] = (relative_occupancy_df[con1_cols].mean(axis=1) - relative_occupancy_df[con2_cols].mean(axis=1)) * np.log2(10)
         relative_occupancy_df['p_value'] = ttest_ind(relative_occupancy_df[con1_cols], relative_occupancy_df[con2_cols], axis=1, equal_var=False, nan_policy='omit').pvalue
@@ -307,6 +312,9 @@ def relative_occupancy(protein_df, phospho_df, quant_cols_all, output_dir, condi
     if mask.any():
         adj_pvals[mask] = multipletests(relative_occupancy_df.loc[mask, 'p_value'], method='fdr_bh')[1]
     relative_occupancy_df['adj_p_value'] = adj_pvals
+
+    # Make a volcano plot
+    volcano_plot(relative_occupancy_df, output_dir, f"{comparison_name}_relative_occupancy")
 
     # Save the relative occupancy DataFrame
     output_file = os.path.join(output_dir, f"relative_occupancy_{comparison_name}.csv")
