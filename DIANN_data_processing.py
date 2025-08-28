@@ -75,8 +75,8 @@ def total_int_normalize(linear_df):
     Returns:
         pd.DataFrame: Total intensity-scaled DataFrame.
     """
-    total_intensity = linear_df.sum(axis=0)  # total per run (column)
-    scaling_factors = total_intensity.median() / total_intensity
+    med_intensity = linear_df.median(axis=0)  # total per run (column)
+    scaling_factors = med_intensity.mean() / med_intensity
     scaled_df = linear_df * scaling_factors
     return scaled_df
 
@@ -100,9 +100,10 @@ def preprocess_proteins(proteins, conditions, output_dir):
     plt.close()
 
     # Mean-normalize
+    proteins = log10_normalize(proteins, quant_cols)
     scaled_proteins = total_int_normalize(proteins[quant_cols].copy())
     proteins[quant_cols] = scaled_proteins
-    proteins = log10_normalize(proteins, quant_cols)
+    
     
     proteins[quant_cols].boxplot(figsize=(20, 10), rot=45)
     plt.savefig(os.path.join(output_dir, "intensity_boxplot_normalized.png"))
@@ -133,9 +134,9 @@ def preprocess_phospho(phospho, conditions, output_dir):
     plt.close()
 
     # Mean-normalize
+    phospho = log10_normalize(phospho, quant_cols)
     scaled_phospho = total_int_normalize(phospho[quant_cols].copy())
     phospho[quant_cols] = scaled_phospho
-    phospho = log10_normalize(phospho, quant_cols)
     phospho[quant_cols].boxplot(figsize=(20, 10), rot=45)
     plt.savefig(os.path.join(output_dir, "intensity_boxplot_phospho_normalized.png"))
     plt.close()
@@ -276,9 +277,10 @@ def relative_occupancy(protein_df, phospho_df, quant_cols_all, output_dir, condi
     """
     # Identify the paired conditions
     condition1, condition2 = conditions
-    con1_cols = [col for col in quant_cols_all if condition1 in col]
-    con2_cols = [col for col in quant_cols_all if condition2 in col]
     quant_cols = [col for col in quant_cols_all if col in protein_df.columns and col in phospho_df.columns]
+
+    con1_cols = [col for col in quant_cols if condition1 in col]
+    con2_cols = [col for col in quant_cols if condition2 in col]
 
     pgs = protein_df['Protein.Group'].unique()
 
