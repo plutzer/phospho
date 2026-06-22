@@ -1,0 +1,3 @@
+Condition1,Condition2,Experiment,Paired
+GSK3B-Y216D,GFP_A,GSK3B_paired,True
+GSK3B-Y216D,GFP_A,GSK3B_unpaired,False

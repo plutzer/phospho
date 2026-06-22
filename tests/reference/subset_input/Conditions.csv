@@ -1,0 +1,17 @@
+Run,Type,Condition,Replicate
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6525_HEK293_GFP(1)_phospho_YZ.raw,Phospho,GFP_A,1
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6526_HEK293_GFP(2)_phospho_YZ.raw,Phospho,GFP_A,2
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6527_HEK293_GFP(3)_phospho_YZ.raw,Phospho,GFP_A,3
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6528_HEK293_GFP(4)_phospho_YZ.raw,Phospho,GFP_A,4
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6529_HEK293_GSK3B_Y216D(1)_phospho_YZ.raw,Phospho,GSK3B-Y216D,1
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6530_HEK293_GSK3B_Y216D(2)_phospho_YZ.raw,Phospho,GSK3B-Y216D,2
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6531_HEK293_GSK3B_Y216D(3)_phospho_YZ.raw,Phospho,GSK3B-Y216D,3
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6532_HEK293_GSK3B_Y216D(4)_phospho_YZ.raw,Phospho,GSK3B-Y216D,4
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6566_HEK293_GFP(1)_WC_YZ_test.raw,Whole,GFP_A,1
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6567_HEK293_GFP(2)_WC_YZ.raw,Whole,GFP_A,2
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6568_HEK293_GFP(3)_WC_YZ.raw,Whole,GFP_A,3
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6569_HEK293_GFP(4)_WC_YZ.raw,Whole,GFP_A,4
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6570_HEK293_GSK3B_Y216D(1)_WC_YZ.raw,Whole,GSK3B-Y216D,1
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6571_HEK293_GSK3B_Y216D(2)_WC_YZ.raw,Whole,GSK3B-Y216D,2
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6572_HEK293_GSK3B_Y216D(3)_WC_YZ.raw,Whole,GSK3B-Y216D,3
+D:\MaxQuant_Searches\Major lab\Isaac\7-19Kinases\MA6573_HEK293_GSK3B_Y216D(4)_WC_YZ.raw,Whole,GSK3B-Y216D,4
