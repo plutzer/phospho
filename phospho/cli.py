@@ -1,9 +1,14 @@
 """Command-line entry point: DIA-NN matrices -> normalized tables, differential
 statistics, relative occupancy, and QC plots.
 
-Reproduces the staged outputs of the original ``DIANN_data_processing.py`` using
-the modular package: converters build :class:`QuantData`, processing normalizes
-and tests, plotting renders QC figures, and exports are produced separately.
+The staged outputs are built from the modular package: converters build
+:class:`QuantData`, processing normalizes and tests, plotting renders QC figures,
+and exports are produced separately.
+
+The whole-proteome and phosphosite matrices may come from one combined DIA-NN
+search or from two separate searches; each is located independently, by the
+``--whole_matrix`` / ``--phospho_matrix`` flag or, when omitted, by its default
+name in ``--input_dir``. Each matrix need only carry its own assay type's runs.
 """
 
 import argparse
@@ -24,8 +29,17 @@ from .processing import (
 )
 from . import plotting
 
+#: Default matrix filenames, used when a matrix is not given an explicit path.
 PG_MATRIX = "report.pg_matrix.tsv"
 PHOSPHO_MATRIX = "report.phosphosites_90.tsv"
+
+
+def _resolve_matrix(path, input_dir, default_name):
+    """Locate a matrix: an explicit path (absolute, or relative to `input_dir`),
+    or `default_name` in `input_dir` when `path` is None."""
+    if path is None:
+        path = default_name
+    return path if os.path.isabs(path) else os.path.join(input_dir, path)
 
 
 def normalize(qd):
@@ -66,6 +80,19 @@ def preprocess(qd, label, output_dir):
     return normalized
 
 
+def _check_pairing(row):
+    """A paired test needs a one-to-one sample correspondence, which pooling two
+    or more conditions on a side does not define. Fail fast rather than mis-pair."""
+    if not row["Paired"]:
+        return
+    for side in ("Condition1", "Condition2"):
+        if ";" in str(row[side]):
+            raise ValueError(
+                f"comparison {row['Experiment']!r} is Paired but pools multiple "
+                f"conditions in {side} ({row[side]!r}); pairing is undefined"
+            )
+
+
 def run_differential(qd, comparisons, output_dir, prefix):
     """Per comparison: subset to the two conditions, test, write CSV + volcano.
 
@@ -75,9 +102,10 @@ def run_differential(qd, comparisons, output_dir, prefix):
     results = {}
     full = _full_frame(qd)
     for _, row in comparisons.iterrows():
+        _check_pairing(row)
         experiment = row["Experiment"]
-        con1_cols = qd.condition_samples(row["Condition1"])
-        con2_cols = qd.condition_samples(row["Condition2"])
+        con1_cols = qd.comparison_samples(row["Condition1"])
+        con2_cols = qd.comparison_samples(row["Condition2"])
         comparison_cols = con1_cols + con2_cols
 
         frame = full[list(qd.feature_meta.columns) + comparison_cols].copy()
@@ -97,8 +125,8 @@ def run_occupancy(protein_qd, phospho_qd, protein_results, phospho_results, comp
     """Relative occupancy per comparison from the in-memory differential frames."""
     for _, row in comparisons.iterrows():
         experiment = row["Experiment"]
-        con1_cols = phospho_qd.condition_samples(row["Condition1"])
-        con2_cols = phospho_qd.condition_samples(row["Condition2"])
+        con1_cols = phospho_qd.comparison_samples(row["Condition1"])
+        con2_cols = phospho_qd.comparison_samples(row["Condition2"])
         quant_cols = con1_cols + con2_cols
 
         occupancy = relative_occupancy_quant(
@@ -120,14 +148,16 @@ def run_occupancy(protein_qd, phospho_qd, protein_results, phospho_results, comp
         plt.close(fig)
 
 
-def run_pipeline(input_dir, output_dir):
+def run_pipeline(input_dir, output_dir, whole_matrix=None, phospho_matrix=None):
     conditions = load_conditions(os.path.join(input_dir, "Conditions.csv"))
     comparisons = load_comparisons(os.path.join(input_dir, "Comparisons.csv"))
 
     create_dirs(output_dir, comparisons)
 
-    protein_qd = quantdata_from_diann(os.path.join(input_dir, PG_MATRIX), conditions, "Whole")
-    phospho_qd = quantdata_from_diann(os.path.join(input_dir, PHOSPHO_MATRIX), conditions, "Phospho")
+    whole_path = _resolve_matrix(whole_matrix, input_dir, PG_MATRIX)
+    phospho_path = _resolve_matrix(phospho_matrix, input_dir, PHOSPHO_MATRIX)
+    protein_qd = quantdata_from_diann(whole_path, conditions, "Whole")
+    phospho_qd = quantdata_from_diann(phospho_path, conditions, "Phospho")
 
     protein_qd = preprocess(protein_qd, "proteinlevel", output_dir)
     phospho_qd = preprocess(phospho_qd, "phospholevel", output_dir)
@@ -145,8 +175,28 @@ def main():
     parser = argparse.ArgumentParser(description="Process DIANN data.")
     parser.add_argument("--input_dir", type=str, required=True, help="Directory containing input files.")
     parser.add_argument("--output_dir", type=str, required=True, help="Directory to save output files.")
+    parser.add_argument(
+        "--whole_matrix",
+        type=str,
+        default=None,
+        help=(
+            "Whole-proteome pg_matrix path, absolute or relative to --input_dir. "
+            f"Defaults to {PG_MATRIX} in --input_dir. Use to point at a separately "
+            "searched whole-cell matrix."
+        ),
+    )
+    parser.add_argument(
+        "--phospho_matrix",
+        type=str,
+        default=None,
+        help=(
+            "Phosphosite matrix path, absolute or relative to --input_dir. "
+            f"Defaults to {PHOSPHO_MATRIX} in --input_dir. Use to point at a "
+            "separately searched phospho matrix."
+        ),
+    )
     args = parser.parse_args()
-    run_pipeline(args.input_dir, args.output_dir)
+    run_pipeline(args.input_dir, args.output_dir, args.whole_matrix, args.phospho_matrix)
     print("DONE")
 
 

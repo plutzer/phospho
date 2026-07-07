@@ -95,6 +95,22 @@ class QuantData:
         """
         return self.sample_meta.index[self.sample_meta["Condition"] == condition].tolist()
 
+    def comparison_samples(self, spec):
+        """Sample columns for one side of a comparison.
+
+        `spec` names one condition or, when it contains ``;``, several conditions
+        whose samples are pooled. The returned columns follow the order the
+        conditions are listed in, and within each condition the matrix order.
+        Fails fast if any listed condition matches no samples.
+        """
+        cols = []
+        for condition in (c.strip() for c in str(spec).split(";")):
+            matched = self.condition_samples(condition)
+            if not matched:
+                raise ValueError(f"no samples for condition {condition!r}")
+            cols.extend(matched)
+        return cols
+
     def copy(self):
         return QuantData(
             quant=self.quant.copy(),

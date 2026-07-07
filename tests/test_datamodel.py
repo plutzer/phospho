@@ -46,6 +46,27 @@ def test_condition_samples_is_exact_no_substring_crosstalk():
     assert qd.condition_samples("GFP_B") == ["GFP_B_1"]
 
 
+def test_comparison_samples_single_condition_matches_condition_samples():
+    qd = make_protein()
+    assert qd.comparison_samples("GFP_A") == qd.condition_samples("GFP_A")
+
+
+def test_comparison_samples_pools_semicolon_list_in_order():
+    qd = make_protein()
+    assert qd.comparison_samples("GFP_B;GFP_A") == ["GFP_B_1", "GFP_A_1", "GFP_A_2"]
+
+
+def test_comparison_samples_tolerates_whitespace():
+    qd = make_protein()
+    assert qd.comparison_samples(" GFP_A ; GFP_B ") == ["GFP_A_1", "GFP_A_2", "GFP_B_1"]
+
+
+def test_comparison_samples_unknown_condition_raises():
+    qd = make_protein()
+    with pytest.raises(ValueError, match="no samples for condition 'GFP_C'"):
+        qd.comparison_samples("GFP_A;GFP_C")
+
+
 def test_quant_columns_must_match_sample_meta():
     qd = make_protein()
     bad_quant = qd.quant.rename(columns={"GFP_A_1": "other"})
