@@ -1,10 +1,11 @@
 """Parse DIA-NN report matrices and design CSVs into :class:`QuantData`.
 
 The two design CSVs drive everything: ``Conditions.csv`` (one row per run, typed
-Whole or Phospho) and ``Comparisons.csv`` (one row per pairwise test). A DIA-NN
-matrix carries every run as a column; a converter keeps the runs of one assay
-type, renames them from the raw ``Run`` path to ``short_name``, and treats the
-remaining columns as per-feature metadata.
+Whole or Phospho, optionally flagged ``Censor`` to exclude a run) and
+``Comparisons.csv`` (one row per pairwise test). A DIA-NN matrix carries its runs
+as columns; a converter keeps the uncensored runs of one assay type, renames them
+from the raw ``Run`` path to ``short_name``, and treats the remaining columns as
+per-feature metadata.
 """
 
 import os
@@ -35,7 +36,9 @@ def load_conditions(path):
     """Load ``Conditions.csv`` and add the derived ``short_name`` column.
 
     ``short_name = Condition + '_' + Replicate``. Fails fast on missing columns
-    or a ``Type`` outside {Whole, Phospho}.
+    or a ``Type`` outside {Whole, Phospho}. An optional ``Censor`` column marks
+    runs to exclude from the analysis; it is coerced to bool and defaults to
+    ``False`` for every run when the column is absent.
     """
     conditions = pd.read_csv(path)
     required = {"Run", "Type", "Condition", "Replicate"}
@@ -49,6 +52,13 @@ def load_conditions(path):
     conditions["short_name"] = (
         conditions["Condition"] + "_" + conditions["Replicate"].astype(str)
     )
+    if "Censor" in conditions.columns:
+        # A blank cell means "not censored"; coerce the rest, rejecting garbage.
+        conditions["Censor"] = conditions["Censor"].map(
+            lambda v: False if pd.isna(v) else _coerce_bool(v)
+        )
+    else:
+        conditions["Censor"] = False
     return conditions
 
 
@@ -74,9 +84,12 @@ def load_comparisons(path):
 def quantdata_from_diann(matrix_path, conditions, assay_type):
     """Build a :class:`QuantData` from a DIA-NN matrix for one assay type.
 
-    Keeps the runs whose Conditions ``Type`` equals `assay_type`, renames them to
-    ``short_name``, and keeps all other columns as feature metadata. Fails fast if
-    a run of this type is absent from the matrix (the legacy code dropped silently).
+    Keeps the runs whose Conditions ``Type`` equals `assay_type` and are not
+    censored, renames them to ``short_name``, and keeps all other columns as
+    feature metadata. Fails fast if a kept run is absent from the matrix (the
+    legacy code dropped silently). A censored run's column, if present, is still
+    recognized as a run and excluded from feature metadata; it simply never enters
+    the quant matrix.
     """
     if assay_type not in ASSAY_FEATURE_KIND:
         raise ValueError(f"assay_type must be Whole or Phospho, got {assay_type!r}")
@@ -84,7 +97,7 @@ def quantdata_from_diann(matrix_path, conditions, assay_type):
 
     matrix = pd.read_csv(matrix_path, sep="\t")
 
-    this_type = conditions[conditions["Type"] == assay_type]
+    this_type = conditions[(conditions["Type"] == assay_type) & (~conditions["Censor"])]
     mapping = this_type.set_index("Run")["short_name"]
     absent = [run for run in mapping.index if run not in matrix.columns]
     if absent:

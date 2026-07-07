@@ -37,6 +37,11 @@ how occupancy pairs sites to protein abundance across the two searches. In
 `Comparisons.csv`, `Condition1`/`Condition2` may be a `;`-separated list of
 conditions to pool several conditions on one side of a comparison.
 
+To exclude a failed run, add an optional `Censor` column to `Conditions.csv` and
+set it truthy on that run's row (blank or absent means kept). Censoring is
+per-run: censoring a bad phospho run leaves its whole-cell run in place, and
+occupancy for the affected condition uses the surviving phospho replicates.
+
 PTM-SEA export:
 
 ```bash
